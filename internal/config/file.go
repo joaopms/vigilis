@@ -25,5 +25,8 @@ func ReadFromFile(path string) {
 		logger.Fatal("Unable to read config file: %v", err)
 	}
 
-	Parse(data)
+	err = Parse(data)
+	if err != nil {
+		logger.Fatal("Error parsing the config.\n%v", err)
+	}
 }

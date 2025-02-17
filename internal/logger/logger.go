@@ -4,16 +4,17 @@ import (
 	log "unknwon.dev/clog/v2"
 )
 
-type logFunction func(format string, v ...interface{})
+var noopLogFunction = func(format string, v ...interface{}) { /* noop */ }
+var noopStop = func() { /* noop */ }
 
 var (
-	Trace logFunction
-	Info  logFunction
-	Warn  logFunction
-	Error logFunction
-	Fatal logFunction
+	Trace = noopLogFunction
+	Info  = noopLogFunction
+	Warn  = noopLogFunction
+	Error = noopLogFunction
+	Fatal = noopLogFunction
 
-	Stop func()
+	Stop = noopStop
 )
 
 func Setup(debug bool) {
