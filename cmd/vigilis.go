@@ -5,6 +5,7 @@ import (
 	"flag"
 	"vigilis/internal/config"
 	"vigilis/internal/logger"
+	"vigilis/internal/recorders"
 )
 
 var (
@@ -25,12 +26,16 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	// Setup the logger
 	logger.Setup(debug)
+	defer logger.Stop()
 
 	if dumpConfig && !debug {
 		logger.Warn("dump-config is enable but debug is not enabled, skipping config dump")
 	}
 
+	// Load the config
 	config.ReadFromFile(configFile)
 	if dumpConfig && debug {
 		prettyConfig, err := json.MarshalIndent(config.Vigilis, "", "  ")
@@ -41,5 +46,8 @@ func main() {
 		}
 	}
 
-	defer logger.Stop()
+	// Initialize the camera recorders
+	recorders.Init(config.Vigilis.Cameras)
+
+	recorders.Run()
 }
