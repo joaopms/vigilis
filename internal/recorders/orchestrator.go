@@ -1,10 +1,14 @@
 package recorders
 
 import (
+	"os"
+	"path"
 	"time"
 	"vigilis/internal/config"
 	"vigilis/internal/logger"
 )
+
+const OutputDirPerms = 0700 // only owner has permission
 
 var orchestrator = Orchestrator{
 	recorders:     make([]Recorder, 0),
@@ -17,24 +21,47 @@ type Orchestrator struct {
 	startRecorder chan int // Index of the recorder to be (re)started
 }
 
-// Init starts all recorders
-func Init(cameras []config.Camera) {
-	recorders := &orchestrator.recorders
+func (o *Orchestrator) initializeRecorders(cameras []config.Camera) {
+	basePath := config.Vigilis.Storage.Path
 
-	// Initialize the recorders
 	for i, camera := range cameras {
-		orchestrator.recorders = append(*recorders, Recorder{
-			Camera: camera,
-			index:  i,
+		o.recorders = append(o.recorders, Recorder{
+			Camera:    camera,
+			OutputDir: path.Join(basePath, camera.Id),
+			index:     i,
 		})
 
 		logger.Trace("Recorder for camera %v initialized", camera.Id)
 	}
+}
 
-	// Start the recorders
-	for _, recorder := range *recorders {
+func (o *Orchestrator) startRecorders() {
+	for _, recorder := range o.recorders {
 		go recorder.StartRecording()
 	}
+}
+
+func (o *Orchestrator) ensureRecordingDirectories() {
+	for _, recorder := range o.recorders {
+		cam := recorder.Camera
+
+		err := os.MkdirAll(recorder.OutputDir, OutputDirPerms)
+		if err != nil {
+			logger.Fatal("Error creating directory for camera %v: %v", cam.Id, err)
+		}
+	}
+}
+
+// Init starts all recorders
+func Init(cameras []config.Camera) {
+	// Initialize the recorders
+	orchestrator.initializeRecorders(cameras)
+
+	// Start the recorders
+	orchestrator.startRecorders()
+
+	// Create directories if needed
+	orchestrator.ensureRecordingDirectories()
 }
 
 // Run is the main loop that takes care of re-starting recorders

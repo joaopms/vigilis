@@ -4,6 +4,8 @@ import (
 	log "unknwon.dev/clog/v2"
 )
 
+type LogFunction = func(format string, v ...interface{})
+
 var noopLogFunction = func(format string, v ...interface{}) { /* noop */ }
 var noopStop = func() { /* noop */ }
 

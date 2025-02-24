@@ -8,21 +8,19 @@ import (
 	"time"
 	"vigilis/internal/config"
 	"vigilis/internal/logger"
+	"vigilis/internal/util"
 )
-
-// TODO Set this on the config
-const RecordingDuration = 10 * time.Second
 
 const ExitTimeout = 5 * time.Second
 
 const (
-	ExitReasonDuration = "reached desired duration"
-	ExitReasonStop     = "stop requested"
+	ExitReasonStop = "stop requested"
 )
 
 type Recorder struct {
-	Camera config.Camera
-	index  int
+	Camera    config.Camera
+	OutputDir string
+	index     int
 
 	// Process related data
 	process *os.Process
@@ -31,11 +29,13 @@ type Recorder struct {
 }
 
 // StartRecording starts a new recording
-func (r *Recorder) StartRecording() {
+func (r Recorder) StartRecording() {
 	camId := r.Camera.Id
 
-	// Build the command
-	cmd := exec.Command("sleep", "10")
+	// Prepare the command
+	path, args := BuildCommand(r)
+
+	cmd := exec.Command(path, args...)
 	cmd.Stdout = &r.stdout
 	cmd.Stderr = &r.stderr
 
@@ -47,47 +47,10 @@ func (r *Recorder) StartRecording() {
 		return
 	}
 
-	// Automatically exit the process after a while
-	exitTimer := time.AfterFunc(RecordingDuration, func() {
-		r.exit(ExitReasonDuration)
-	})
-
 	r.process = cmd.Process
 
 	pid := cmd.Process.Pid
 	logger.Info("%v recorder > Process spawned with PID %d", camId, pid)
-
-	// --------------------------------
-
-	// TODO Properly dump logs
-
-	for r.stdout.Len() > 0 {
-		output, err := r.stdout.ReadBytes('\n')
-		if err != nil {
-			logger.Warn("Error reading stdout: %v", err)
-			break
-		}
-
-		// Remove the last character, \n
-		output = output[:len(output)-1]
-
-		logger.Trace("stdout output: %v", string(output))
-	}
-
-	for r.stderr.Len() > 0 {
-		output, err := r.stderr.ReadBytes('\n')
-		if err != nil {
-			logger.Warn("Error reading stderr: %v", err)
-			break
-		}
-
-		// Remove the last character, \n
-		output = output[:len(output)-1]
-
-		logger.Warn("stderr output: %v", string(output))
-	}
-
-	// --------------------------------
 
 	// Wait for the command to exit
 	cmdErr := cmd.Wait()
@@ -95,12 +58,11 @@ func (r *Recorder) StartRecording() {
 	// Start the new process as soon as this one exits to avoid loosing footage
 	r.restart()
 
-	// Stop the restarting of the current process
-	exitTimer.Stop()
-
 	// Log errors, exclude interruptions
 	if cmdErr != nil && cmdErr.Error() != "signal: interrupt" {
 		logger.Error("%v recorder > Process %d exited with error: %v", camId, pid, cmdErr)
+
+		util.LogBuffer(r.stderr, "stderr", logger.Info, camId+" recorder")
 		return
 	}
 
@@ -108,12 +70,12 @@ func (r *Recorder) StartRecording() {
 }
 
 // StopRecording stops the recording by exiting the process
-func (r *Recorder) StopRecording() {
+func (r Recorder) StopRecording() {
 	r.exit(ExitReasonStop)
 }
 
 // exit tries to gracefully exit the process, forcing it after a while if needed
-func (r *Recorder) exit(reason string) {
+func (r Recorder) exit(reason string) {
 	camId := r.Camera.Id
 	pid := r.process.Pid
 
@@ -144,7 +106,7 @@ func (r *Recorder) exit(reason string) {
 }
 
 // restart signals the orchestrator to (re)start the process
-func (r *Recorder) restart() {
+func (r Recorder) restart() {
 	// TODO Increase channel count?
 	orchestrator.startRecorder <- r.index
 }
