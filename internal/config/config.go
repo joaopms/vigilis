@@ -7,9 +7,11 @@ import (
 
 type (
 	VigilisConfig struct {
-		Storage *Storage `yaml:"storage" validate:"required"`
+		Storage Storage `yaml:"storage" validate:"required"`
 
 		Cameras []Camera `yaml:"cameras" validate:"required,gt=0,unique=Id,dive"`
+
+		Recorder Recorder `yaml:"recorder" validate:"omitempty"`
 	}
 
 	Storage struct {
@@ -21,9 +23,17 @@ type (
 		Name      string `yaml:"name" validate:"required,gte=1,lte=30"`
 		StreamUrl string `yaml:"stream_url" validate:"required,url,gte=8"`
 	}
+
+	Recorder struct {
+		FfmpegPath string `yaml:"ffmpeg_path" validate:"filepath"`
+	}
 )
 
-var Vigilis VigilisConfig
+var Vigilis = VigilisConfig{
+	Recorder: Recorder{
+		FfmpegPath: "ffmpeg",
+	},
+}
 
 func Parse(data []byte) error {
 	// Setup the data validator

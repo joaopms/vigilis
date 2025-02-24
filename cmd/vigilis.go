@@ -46,6 +46,9 @@ func main() {
 		}
 	}
 
+	// Check for dependencies
+	recorders.CheckFfmpeg()
+
 	// Initialize the camera recorders
 	recorders.Init(config.Vigilis.Cameras)
 

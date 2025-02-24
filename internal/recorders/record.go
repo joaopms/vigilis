@@ -145,5 +145,6 @@ func (r *Recorder) exit(reason string) {
 
 // restart signals the orchestrator to (re)start the process
 func (r *Recorder) restart() {
+	// TODO Increase channel count?
 	orchestrator.startRecorder <- r.index
 }

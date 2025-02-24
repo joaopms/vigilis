@@ -32,7 +32,7 @@ storage:
 		},
 		{
 			Name:          "only-storage-and-empty-path",
-			ExpectedError: "Key: 'VigilisConfig.Storage.Path' Error:Field validation for 'Path' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
 			Data: `---
 storage:
   path:
@@ -140,11 +140,86 @@ cameras:
 `,
 		},
 		{
-			Name:          "valid-storage-and-two-valid-cameras",
+			Name:          "valid-storage-two-valid-cameras",
 			ExpectedError: "",
 			Data: `---
 storage:
   path: /tmp/vigilis/
+
+cameras:
+  - id: a
+    name: A
+    stream_url: rtsp://a
+  - id: b
+    name: B
+    stream_url: rtsp://b
+`,
+		},
+		{
+			Name:          "valid-storage-two-valid-cameras-empty-recorder",
+			ExpectedError: "",
+			Data: `---
+storage:
+  path: /tmp/vigilis/
+
+recorder:
+
+cameras:
+  - id: a
+    name: A
+    stream_url: rtsp://a
+  - id: b
+    name: B
+    stream_url: rtsp://b
+`,
+		},
+		{
+			Name:          "valid-storage-two-valid-cameras-empty-ffmpegpath",
+			ExpectedError: "",
+			Data: `---
+storage:
+  path: /tmp/vigilis/
+
+recorder:
+  ffmpeg_path: ""
+
+cameras:
+  - id: a
+    name: A
+    stream_url: rtsp://a
+  - id: b
+    name: B
+    stream_url: rtsp://b
+`,
+		},
+		{
+			Name:          "valid-storage-two-valid-cameras-invalid-ffmpegpath",
+			ExpectedError: "Key: 'VigilisConfig.Recorder.FfmpegPath' Error:Field validation for 'FfmpegPath' failed on the 'filepath' tag",
+			Data: `---
+storage:
+  path: /tmp/vigilis/
+
+recorder:
+  ffmpeg_path: "."
+
+cameras:
+  - id: a
+    name: A
+    stream_url: rtsp://a
+  - id: b
+    name: B
+    stream_url: rtsp://b
+`,
+		},
+		{
+			Name:          "valid-storage-two-valid-cameras-valid-ffmpegpath",
+			ExpectedError: "",
+			Data: `---
+storage:
+  path: /tmp/vigilis/
+
+recorder:
+  ffmpeg_path: /usr/bin/ffmpeg
 
 cameras:
   - id: a
@@ -179,6 +254,7 @@ cameras:
 			// NO BOOM + valid = pass
 			// NO BOOM + invalid = fail
 			if (err == nil && caseData.ExpectedError != "") || (err != nil && (err.Error() != caseData.ExpectedError)) {
+				// NOTE Set breakpoint here to get the expectedError when creating new tests
 				t.Fail()
 			}
 		})
