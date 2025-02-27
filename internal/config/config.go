@@ -5,13 +5,14 @@ import (
 	"github.com/goccy/go-yaml"
 )
 
+// Validation rules at https://pkg.go.dev/github.com/go-playground/validator/v10
 type (
 	VigilisConfig struct {
-		Storage Storage `yaml:"storage" validate:"required"`
+		Storage *Storage `yaml:"storage" validate:"required"`
 
-		Cameras []Camera `yaml:"cameras" validate:"required,gt=0,unique=Id,dive"`
+		Cameras []*Camera `yaml:"cameras" validate:"required,gt=0,unique=Id,dive"`
 
-		Recorder Recorder `yaml:"recorder" validate:"omitempty"`
+		Recorder *Recorder `yaml:"recorder" validate:"omitempty"`
 	}
 
 	Storage struct {
@@ -30,7 +31,7 @@ type (
 )
 
 var Vigilis = VigilisConfig{
-	Recorder: Recorder{
+	Recorder: &Recorder{
 		FfmpegPath: "ffmpeg",
 	},
 }
