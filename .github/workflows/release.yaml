@@ -36,7 +36,7 @@ jobs:
           mkdir -p ./bin
           
           # Build for Linux with version in the filename
-          GOOS=linux GOARCH=amd64 go build -o ./bin/vigilis-${{ steps.extract_version.outputs.version }}-linux-amd64 ./...
+          GOOS=linux GOARCH=amd64 go build -o ./bin/vigilis-${{ steps.extract_version.outputs.version }}-linux-amd64 ./cmd/vigilis.go
       
       - name: Create Release
         id: create_release
