@@ -3,19 +3,22 @@ package config
 import (
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-yaml"
+	"time"
 )
 
+// Validation rules at https://pkg.go.dev/github.com/go-playground/validator/v10
 type (
 	VigilisConfig struct {
-		Storage Storage `yaml:"storage" validate:"required"`
+		Storage *Storage `yaml:"storage" validate:"required"`
 
-		Cameras []Camera `yaml:"cameras" validate:"required,gt=0,unique=Id,dive"`
+		Cameras []*Camera `yaml:"cameras" validate:"required,gt=0,unique=Id,dive"`
 
-		Recorder Recorder `yaml:"recorder" validate:"omitempty"`
+		Recorder *Recorder `yaml:"recorder" validate:"omitempty"`
 	}
 
 	Storage struct {
-		Path string `yaml:"path" validate:"required,dirpath,gte=1"`
+		Path          string `yaml:"path" validate:"required,dirpath,gte=1"`
+		RetentionDays int    `yaml:"retention_days" validate:"required,number,gte=1"`
 	}
 
 	Camera struct {
@@ -30,7 +33,7 @@ type (
 )
 
 var Vigilis = VigilisConfig{
-	Recorder: Recorder{
+	Recorder: &Recorder{
 		FfmpegPath: "ffmpeg",
 	},
 }
@@ -52,4 +55,8 @@ func Parse(data []byte) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) RetentionDaysDuration() time.Duration {
+	return time.Hour * 24 * time.Duration(s.RetentionDays)
 }

@@ -10,6 +10,8 @@ import (
 	"vigilis/internal/logger"
 )
 
+const RecordingLengthMinutes = 10
+
 type RecordMode int
 
 const (
@@ -38,7 +40,7 @@ var recordArgs = map[RecordMode]cmdArgs{
 		"-acodec", "copy",
 		"-f", "segment",
 		"-reset_timestamps", "1",
-		"-segment_time", "" + strconv.Itoa(10*60), // in minutes
+		"-segment_time", "" + strconv.Itoa(60*RecordingLengthMinutes), // in seconds
 		"-segment_atclocktime", "1", // minute to start a new segment
 		"-segment_format", "mkv",
 		"-strftime", "1",

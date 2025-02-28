@@ -1,19 +1,23 @@
 package config
 
 import (
+	"errors"
+	"github.com/go-playground/validator/v10"
+	"slices"
 	"testing"
 )
 
 func TestConfigValidation(t *testing.T) {
 	cases := []struct {
-		Name          string
-		ExpectedError string
-		Data          string
+		Name             string
+		ExpectedError    string
+		MustNotHaveError string
+		Data             string
 	}{
 		// Bad data
 		{
 			Name:          "empty",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			ExpectedError: "",
 			Data:          "",
 		},
 		{
@@ -24,128 +28,176 @@ func TestConfigValidation(t *testing.T) {
 
 		// Storage
 		{
-			Name:          "only-storage",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			Name:          "invalid-storage-no-values",
+			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag",
 			Data: `---
 storage:
 `,
 		},
 		{
-			Name:          "only-storage-and-empty-path",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			Name:          "invalid-storage-empty-path",
+			ExpectedError: "Key: 'VigilisConfig.Storage.Path' Error:Field validation for 'Path' failed on the 'required' tag",
 			Data: `---
 storage:
   path:
 `,
 		},
 		{
-			Name:          "only-storage-and-path-without-slash",
-			ExpectedError: "Key: 'VigilisConfig.Storage.Path' Error:Field validation for 'Path' failed on the 'dirpath' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			Name:          "invalid-storage-valid-path-without-slash",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
 			Data: `---
 storage:
   path: /tmp/vigilis
 `,
 		},
 		{
-			Name:          "only-storage-and-path",
-			ExpectedError: "Key: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			Name:          "invalid-storage-valid-path-with-slash",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
 			Data: `---
 storage:
   path: /tmp/vigilis/
+`,
+		},
+		{
+			Name:          "invalid-storage-empty-retention-days",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
+			Data: `---
+storage:
+  retention_days:
+`,
+		},
+		{
+			Name:          "invalid-storage-zero-retention-days",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
+			Data: `---
+storage:
+  retention_days: 0
+`,
+		},
+		{
+			Name:          "invalid-storage-invalid-floating-retention-days",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
+			Data: `---
+storage:
+  path: /tmp/vigilis
+  retention_days: 0.5
+`,
+		},
+		{
+			Name:             "invalid-storage-valid-integer-retention-days",
+			MustNotHaveError: "VigilisConfig.Storage.RetentionDays",
+			Data: `---
+storage:
+  path: /tmp/vigilis
+  retention_days: 1
 `,
 		},
 
 		// Cameras
 		{
-			Name:          "only-cameras",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
+			Name:          "invalid-cameras-no-values",
+			ExpectedError: "Key: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'required' tag",
 			Data: `---
 cameras:
 `,
 		},
 		{
-			Name:          "only-cameras-and-empty-values",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].Name' Error:Field validation for 'Name' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].StreamUrl' Error:Field validation for 'StreamUrl' failed on the 'required' tag",
+			Name:          "invalid-cameras-empty-id",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'required' tag",
 			Data: `---
 cameras:
   - id:
-    name:
-    stream_url:
 `,
 		},
 		{
-			Name:          "only-cameras-and-short-values",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].StreamUrl' Error:Field validation for 'StreamUrl' failed on the 'gte' tag",
+			Name:          "invalid-cameras-empty-name",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Name' Error:Field validation for 'Name' failed on the 'required' tag",
 			Data: `---
 cameras:
-  - id: a
-    name: A
-    stream_url: a://a
+  - name:
 `,
 		},
 		{
-			Name:          "only-cameras-and-invalid-stream-url",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].StreamUrl' Error:Field validation for 'StreamUrl' failed on the 'url' tag",
+			Name:          "invalid-cameras-empty-stream-url",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].StreamUrl' Error:Field validation for 'StreamUrl' failed on the 'required' tag",
 			Data: `---
 cameras:
-  - id: a
-    name: A
-    stream_url: 12345678
+  - stream_url:
 `,
 		},
 		{
-			Name:          "only-cameras-and-valid-stream-url",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag",
+			Name:          "invalid-cameras-short-stream-url",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].StreamUrl' Error:Field validation for 'StreamUrl' failed on the 'gte' tag",
 			Data: `---
 cameras:
-  - id: a
-    name: A
-    stream_url: rtsp://a
+  - stream_url: a://a
 `,
 		},
 		{
-			Name:          "only-cameras-and-long-values",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'lte' tag\nKey: 'VigilisConfig.Cameras[0].Name' Error:Field validation for 'Name' failed on the 'lte' tag",
+			Name:          "invalid-cameras-invalid-stream-url",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].StreamUrl' Error:Field validation for 'StreamUrl' failed on the 'url' tag",
+			Data: `---
+cameras:
+  - stream_url: 12345678
+`,
+		},
+		{
+			Name:             "invalid-cameras-valid-stream-url",
+			MustNotHaveError: "VigilisConfig.Cameras.StreamUrl",
+			Data: `---
+cameras:
+  - stream_url: rtsp://a
+`,
+		},
+		{
+			Name:          "invalid-cameras-long-id",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'lte' tag",
 			Data: `---
 cameras:
   - id: 12345678901234567890A
-    name: 123456789012345678901234567890A
-    stream_url: rtsp://a
 `,
 		},
 		{
-			Name:          "only-two-cameras-and-id-not-alphanum",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'alphanum' tag\nKey: 'VigilisConfig.Cameras[1].Id' Error:Field validation for 'Id' failed on the 'alphanum' tag",
+			Name:          "invalid-cameras-long-name",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Name' Error:Field validation for 'Name' failed on the 'lte' tag",
+			Data: `---
+cameras:
+  - name: 123456789012345678901234567890A
+`,
+		},
+		{
+			Name:          "invalid-cameras-id-with-space",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'alphanum' tag",
 			Data: `---
 cameras:
   - id: "a b"
     name: "a b"
-    stream_url: rtsp://a
+`,
+		},
+		{
+			Name:          "invalid-cameras-id-not-alphanum",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'alphanum' tag",
+			Data: `---
+cameras:
   - id: a! 
     name: "a b!"
-    stream_url: rtsp://a
 `,
 		},
 		{
-			Name:          "only-two-cameras-and-repeated-ids",
-			ExpectedError: "Key: 'VigilisConfig.Storage' Error:Field validation for 'Storage' failed on the 'required' tag\nKey: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'unique' tag",
+			Name:          "invalid-cameras-repeated-ids",
+			ExpectedError: "Key: 'VigilisConfig.Cameras' Error:Field validation for 'Cameras' failed on the 'unique' tag",
 			Data: `---
 cameras:
   - id: a
     name: A
-    stream_url: rtsp://a
   - id: a
     name: B
-    stream_url: rtsp://a
 `,
 		},
 		{
-			Name:          "valid-storage-two-valid-cameras",
-			ExpectedError: "",
+			Name:             "valid-two-cameras",
+			MustNotHaveError: "VigilisConfig.Cameras",
 			Data: `---
-storage:
-  path: /tmp/vigilis/
-
 cameras:
   - id: a
     name: A
@@ -156,84 +208,46 @@ cameras:
 `,
 		},
 		{
-			Name:          "valid-storage-two-valid-cameras-empty-recorder",
+			Name:          "valid-recorder-no-values",
 			ExpectedError: "",
 			Data: `---
-storage:
-  path: /tmp/vigilis/
-
 recorder:
-
-cameras:
-  - id: a
-    name: A
-    stream_url: rtsp://a
-  - id: b
-    name: B
-    stream_url: rtsp://b
 `,
 		},
 		{
-			Name:          "valid-storage-two-valid-cameras-empty-ffmpegpath",
-			ExpectedError: "",
-			Data: `---
-storage:
-  path: /tmp/vigilis/
-
-recorder:
-  ffmpeg_path: ""
-
-cameras:
-  - id: a
-    name: A
-    stream_url: rtsp://a
-  - id: b
-    name: B
-    stream_url: rtsp://b
-`,
-		},
-		{
-			Name:          "valid-storage-two-valid-cameras-invalid-ffmpegpath",
+			Name:          "invalid-recorder-empty-ffmpegpath",
 			ExpectedError: "Key: 'VigilisConfig.Recorder.FfmpegPath' Error:Field validation for 'FfmpegPath' failed on the 'filepath' tag",
 			Data: `---
-storage:
-  path: /tmp/vigilis/
-
 recorder:
-  ffmpeg_path: "."
-
-cameras:
-  - id: a
-    name: A
-    stream_url: rtsp://a
-  - id: b
-    name: B
-    stream_url: rtsp://b
+  ffmpeg_path: ""
 `,
 		},
 		{
-			Name:          "valid-storage-two-valid-cameras-valid-ffmpegpath",
-			ExpectedError: "",
+			Name:          "invalid-recorder-relative-ffmpegpath",
+			ExpectedError: "Key: 'VigilisConfig.Recorder.FfmpegPath' Error:Field validation for 'FfmpegPath' failed on the 'filepath' tag",
 			Data: `---
-storage:
-  path: /tmp/vigilis/
-
+recorder:
+  ffmpeg_path: .
+`,
+		},
+		{
+			Name:             "valid-recorder-full-ffmpegpath",
+			MustNotHaveError: "VigilisStorage.Recorder.FfmpegPath",
+			Data: `---
 recorder:
   ffmpeg_path: /usr/bin/ffmpeg
-
-cameras:
-  - id: a
-    name: A
-    stream_url: rtsp://a
-  - id: b
-    name: B
-    stream_url: rtsp://b
 `,
 		},
 	}
 
 	for _, caseData := range cases {
 		t.Run(caseData.Name, func(t *testing.T) {
+			// Variables are defined here so "goto fail" has access to them
+			var (
+				fails     validator.ValidationErrors
+				errorType string
+			)
+
 			//defer func() {
 			//	b := recover()
 			//	if b != nil {
@@ -249,14 +263,70 @@ cameras:
 			err := Parse([]byte(caseData.Data))
 			//fmt.Println(Vigilis, caseData.ExpectedError, err)
 
-			// BOOM + valid = fail
-			// BOOM + invalid = pass
 			// NO BOOM + valid = pass
 			// NO BOOM + invalid = fail
-			if (err == nil && caseData.ExpectedError != "") || (err != nil && (err.Error() != caseData.ExpectedError)) {
-				// NOTE Set breakpoint here to get the expectedError when creating new tests
-				t.Fail()
+			if err == nil && caseData.ExpectedError != "" {
+				errorType = "expected error not thrown"
+				goto fail
 			}
+
+			// BOOM + valid = fail
+			// BOOM + invalid = pass
+			if err != nil {
+				// Fail on non-validation errors
+				isValidationError := errors.As(err, &fails)
+				if !isValidationError {
+					if err.Error() == caseData.ExpectedError {
+						return
+					}
+
+					t.Error("Invalid ExpectedError")
+					t.Errorf("Wanted: %v", caseData.ExpectedError)
+					t.Errorf("Got %v", err)
+
+					errorType = "invalid ExpectedError"
+					goto fail
+				}
+
+				if caseData.ExpectedError == "" {
+					if caseData.MustNotHaveError == "" {
+						// If no error was expected, exit with success
+						return
+					}
+
+					// Fail if an error was thrown for a value
+					if slices.ContainsFunc(fails, func(fieldError validator.FieldError) bool {
+						return fieldError.Namespace() == caseData.MustNotHaveError
+					}) {
+						errorType = "error for value was thrown"
+						goto fail
+					}
+
+					return
+				}
+
+				// Fail if the expected error was NOT thrown
+				if !slices.ContainsFunc(fails, func(fieldError validator.FieldError) bool {
+					return fieldError.Error() == caseData.ExpectedError
+				}) {
+					errorType = "unexpected error not thrown"
+					goto fail
+				}
+			}
+
+			return
+
+		fail:
+			// Variables for easier debugging/new tests
+			var stringFails []string
+			for _, fail := range fails {
+				stringFails = append(stringFails, fail.Error())
+			}
+
+			// NOTE Set breakpoint here to get the ExpectedError when creating new tests.
+			t.Fail()
+
+			(func(string) {})(errorType) // Get rid of "declared and not used"
 		})
 	}
 }

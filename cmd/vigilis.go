@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"time"
 	"vigilis/internal/config"
+	"vigilis/internal/files"
 	"vigilis/internal/logger"
 	"vigilis/internal/recorders"
 )
@@ -52,5 +54,25 @@ func main() {
 	// Initialize the camera recorders
 	recorders.Init(config.Vigilis.Cameras)
 
-	recorders.Run()
+	// Delete old recordings
+	go files.DeleteOldRecordings()
+
+	run()
+}
+
+// Main application loop
+func run() {
+	tick := time.Tick(time.Second * 1)
+	recordingTick := time.Tick(recorders.RecordingLengthMinutes * time.Minute)
+
+	for {
+		select {
+		// TODO Channel to capture SIGINT/SIGTERM on vigilis
+		case <-recordingTick:
+			// Periodically delete old recordings
+			go files.DeleteOldRecordings()
+		case <-tick:
+			recorders.Loop()
+		}
+	}
 }
