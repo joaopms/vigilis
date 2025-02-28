@@ -3,7 +3,6 @@ package recorders
 import (
 	"os"
 	"path"
-	"time"
 	"vigilis/internal/config"
 	"vigilis/internal/logger"
 )
@@ -21,7 +20,7 @@ type Orchestrator struct {
 	startRecorder chan int // Index of the recorder to be (re)started
 }
 
-func (o *Orchestrator) initializeRecorders(cameras []config.Camera) {
+func (o *Orchestrator) initializeRecorders(cameras []*config.Camera) {
 	basePath := config.Vigilis.Storage.Path
 
 	for i, camera := range cameras {
@@ -53,29 +52,26 @@ func (o *Orchestrator) ensureRecordingDirectories() {
 }
 
 // Init starts all recorders
-func Init(cameras []config.Camera) {
+func Init(cameras []*config.Camera) {
 	// Initialize the recorders
 	orchestrator.initializeRecorders(cameras)
 
-	// Start the recorders
-	orchestrator.startRecorders()
-
 	// Create directories if needed
 	orchestrator.ensureRecordingDirectories()
+
+	// Start the recorders
+	orchestrator.startRecorders()
 }
 
-// Run is the main loop that takes care of re-starting recorders
-func Run() {
+// Loop takes care of re-starting recorders
+func Loop() {
 	recorders := orchestrator.recorders
 
-	for {
-		select {
-		case i := <-orchestrator.startRecorder:
-			recorder := recorders[i]
-			go recorder.StartRecording()
-		default:
-			// TODO Channel to capture SIGINT/SIGTERM on vigilis
-			time.Sleep(time.Second)
-		}
+	select {
+	// Re-start recorder when one goes down
+	case i := <-orchestrator.startRecorder:
+		recorder := recorders[i]
+		go recorder.StartRecording()
+	default:
 	}
 }

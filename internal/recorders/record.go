@@ -18,7 +18,7 @@ const (
 )
 
 type Recorder struct {
-	Camera    config.Camera
+	Camera    *config.Camera
 	OutputDir string
 	index     int
 

@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-yaml"
+	"time"
 )
 
 // Validation rules at https://pkg.go.dev/github.com/go-playground/validator/v10
@@ -16,7 +17,8 @@ type (
 	}
 
 	Storage struct {
-		Path string `yaml:"path" validate:"required,dirpath,gte=1"`
+		Path          string `yaml:"path" validate:"required,dirpath,gte=1"`
+		RetentionDays int    `yaml:"retention_days" validate:"required,number,gte=1"`
 	}
 
 	Camera struct {
@@ -53,4 +55,8 @@ func Parse(data []byte) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) RetentionDaysDuration() time.Duration {
+	return time.Hour * 24 * time.Duration(s.RetentionDays)
 }

@@ -58,6 +58,40 @@ storage:
   path: /tmp/vigilis/
 `,
 		},
+		{
+			Name:          "invalid-storage-empty-retention-days",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
+			Data: `---
+storage:
+  retention_days:
+`,
+		},
+		{
+			Name:          "invalid-storage-zero-retention-days",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
+			Data: `---
+storage:
+  retention_days: 0
+`,
+		},
+		{
+			Name:          "invalid-storage-invalid-floating-retention-days",
+			ExpectedError: "Key: 'VigilisConfig.Storage.RetentionDays' Error:Field validation for 'RetentionDays' failed on the 'required' tag",
+			Data: `---
+storage:
+  path: /tmp/vigilis
+  retention_days: 0.5
+`,
+		},
+		{
+			Name:             "invalid-storage-valid-integer-retention-days",
+			MustNotHaveError: "VigilisConfig.Storage.RetentionDays",
+			Data: `---
+storage:
+  path: /tmp/vigilis
+  retention_days: 1
+`,
+		},
 
 		// Cameras
 		{
