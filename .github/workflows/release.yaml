@@ -38,16 +38,16 @@ jobs:
           VERSION=${{ steps.extract_version.outputs.version }}
           
           # Build for Linux with version in the application and filename
-          GOOS=linux GOARCH=amd64 go build \
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
             -o ./bin/vigilis-$VERSION-linux-amd64 \
-            -ldflags "-X main.version=$VERSION" \
+            -ldflags "-s -w -X main.version=$VERSION" \
             ./cmd/vigilis.go
       
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
