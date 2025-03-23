@@ -1,5 +1,6 @@
 storage:
   path: /vigilis/recordings/
+  retention_days: 7
 
 cameras:
     - id: outdoor
