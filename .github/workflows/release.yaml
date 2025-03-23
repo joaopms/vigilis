@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23'
+          go-version: '1.24.1'
       
       - name: Extract version from tag
         id: extract_version
@@ -35,8 +35,13 @@ jobs:
           # Create a directory for the binary
           mkdir -p ./bin
           
-          # Build for Linux with version in the filename
-          GOOS=linux GOARCH=amd64 go build -o ./bin/vigilis-${{ steps.extract_version.outputs.version }}-linux-amd64 ./cmd/vigilis.go
+          VERSION=${{ steps.extract_version.outputs.version }}
+          
+          # Build for Linux with version in the application and filename
+          GOOS=linux GOARCH=amd64 go build \
+            -o ./bin/vigilis-$VERSION-linux-amd64 \
+            -ldflags "-X main.version=$VERSION" \
+            ./cmd/vigilis.go
       
       - name: Create Release
         id: create_release

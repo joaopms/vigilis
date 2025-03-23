@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
+	"os"
 	"time"
 	"vigilis/internal/config"
 	"vigilis/internal/files"
@@ -17,6 +19,8 @@ var (
 	dumpConfig bool
 )
 
+var version = "0.0.0-development" // Version is automatically set when building
+
 func init() {
 	const configUsage = "path to the config file"
 	flag.StringVar(&configFile, "c", configFile, configUsage)
@@ -24,6 +28,8 @@ func init() {
 
 	flag.BoolVar(&debug, "debug", false, "print debug messages to stdout")
 	flag.BoolVar(&dumpConfig, "dump-config", false, "dump the parsed config to stdout")
+
+	flag.BoolFunc("version", "prints the version and exits", printVersion)
 }
 
 func main() {
@@ -32,6 +38,8 @@ func main() {
 	// Setup the logger
 	logger.Setup(debug)
 	defer logger.Stop()
+
+	logger.Info("Starting Vigilis v%s", version)
 
 	if dumpConfig && !debug {
 		logger.Warn("dump-config is enable but debug is not enabled, skipping config dump")
@@ -75,4 +83,10 @@ func run() {
 			recorders.Loop()
 		}
 	}
+}
+
+func printVersion(_ string) error {
+	fmt.Printf("v%s\n", version)
+	os.Exit(0)
+	return nil
 }
