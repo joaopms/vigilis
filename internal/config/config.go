@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-yaml"
+	"regexp"
 	"time"
 )
 
@@ -22,7 +23,7 @@ type (
 	}
 
 	Camera struct {
-		Id        string `yaml:"id" validate:"required,alphanum,gte=1,lte=20"`
+		Id        string `yaml:"id" validate:"required,slug,gte=1,lte=20"`
 		Name      string `yaml:"name" validate:"required,gte=1,lte=30"`
 		StreamUrl string `yaml:"stream_url" validate:"required,url,gte=8"`
 	}
@@ -42,8 +43,17 @@ func Parse(data []byte) error {
 	// Setup the data validator
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
+	// Register the custom validator for slugs
+	err := validate.RegisterValidation("slug", func(fl validator.FieldLevel) bool {
+		regex := regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
+		return regex.MatchString(fl.Field().String())
+	})
+	if err != nil {
+		return err
+	}
+
 	// Try to decode the config
-	err := yaml.UnmarshalWithOptions(data, &Vigilis, yaml.Strict())
+	err = yaml.UnmarshalWithOptions(data, &Vigilis, yaml.Strict())
 	if err != nil {
 		return err
 	}
