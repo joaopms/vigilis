@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/go-playground/validator/v10"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -167,7 +168,7 @@ cameras:
 		},
 		{
 			Name:          "invalid-cameras-id-with-space",
-			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'alphanum' tag",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'slug' tag",
 			Data: `---
 cameras:
   - id: "a b"
@@ -176,7 +177,7 @@ cameras:
 		},
 		{
 			Name:          "invalid-cameras-id-not-alphanum",
-			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'alphanum' tag",
+			ExpectedError: "Key: 'VigilisConfig.Cameras[0].Id' Error:Field validation for 'Id' failed on the 'slug' tag",
 			Data: `---
 cameras:
   - id: a! 
@@ -205,6 +206,19 @@ cameras:
   - id: b
     name: B
     stream_url: rtsp://b
+`,
+		},
+		{
+			Name:             "valid-cameras-with-underscore-or-dash-in-id",
+			MustNotHaveError: "VigilisConfig.Cameras",
+			Data: `---
+cameras:
+  - id: a_b
+    name: "A B"
+    stream_url: rtsp://a-b
+  - id: c-d 
+    name: "C D"
+    stream_url: rtsp://c-d
 `,
 		},
 		{
@@ -296,7 +310,12 @@ recorder:
 
 					// Fail if an error was thrown for a value
 					if slices.ContainsFunc(fails, func(fieldError validator.FieldError) bool {
-						return fieldError.Namespace() == caseData.MustNotHaveError
+						// Checking for prefix so, for example, VigilisConfig.Cameras matches VigilisConfig.Cameras[0].Id
+						if strings.HasPrefix(fieldError.Namespace(), caseData.MustNotHaveError) {
+							t.Log("error:", fieldError.Error())
+							return true
+						}
+						return false
 					}) {
 						errorType = "error for value was thrown"
 						goto fail
@@ -309,7 +328,11 @@ recorder:
 				if !slices.ContainsFunc(fails, func(fieldError validator.FieldError) bool {
 					return fieldError.Error() == caseData.ExpectedError
 				}) {
-					errorType = "unexpected error not thrown"
+					for _, fail := range fails {
+						t.Log("error:", fail)
+					}
+					t.Log("expected:", caseData.ExpectedError)
+					errorType = "expected error not thrown"
 					goto fail
 				}
 			}
@@ -323,10 +346,10 @@ recorder:
 				stringFails = append(stringFails, fail.Error())
 			}
 
+			t.Log("fail reason:", errorType)
+
 			// NOTE Set breakpoint here to get the ExpectedError when creating new tests.
 			t.Fail()
-
-			(func(string) {})(errorType) // Get rid of "declared and not used"
 		})
 	}
 }
