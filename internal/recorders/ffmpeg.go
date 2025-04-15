@@ -50,10 +50,10 @@ var recordArgs = map[RecordMode]cmdArgs{
 var Ffmpeg FfmpegConfig
 
 func CheckFfmpeg() {
-	path := config.Vigilis.Recorder.FfmpegPath
+	execPath := config.Vigilis.Recorder.FfmpegPath
 
 	// Check if the path is valid
-	fullPath, err := exec.LookPath(path)
+	fullPath, err := exec.LookPath(execPath)
 	if err != nil {
 		logger.Error("ffmpeg not found: %v", err)
 		logger.Fatal("Make sure you have ffmpeg installed or provide a valid path in the config")

@@ -3,6 +3,7 @@ package recorders
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -17,10 +18,36 @@ const (
 	ExitReasonStop = "stop requested"
 )
 
+type RecorderState int
+
+const (
+	StateReady RecorderState = iota
+	StateRunning
+	StatePaused
+	StateStopped
+)
+
+func (state *RecorderState) String() string {
+	switch *state {
+	case StateReady:
+		return "Ready"
+	case StateRunning:
+		return "Running"
+	case StatePaused:
+		return "Paused"
+	case StateStopped:
+		return "Stopped"
+	}
+
+	return fmt.Sprintf("RecorderState(%d)", state)
+}
+
 type Recorder struct {
 	Camera    *config.Camera
 	OutputDir string
 	index     int
+
+	State RecorderState
 
 	// Process related data
 	process *os.Process
@@ -29,11 +56,11 @@ type Recorder struct {
 }
 
 // StartRecording starts a new recording
-func (r Recorder) StartRecording() {
+func (r *Recorder) StartRecording() {
 	camId := r.Camera.Id
 
 	// Prepare the command
-	path, args := BuildCommand(r)
+	path, args := BuildCommand(*r)
 
 	cmd := exec.Command(path, args...)
 	cmd.Stdout = &r.stdout
@@ -47,6 +74,7 @@ func (r Recorder) StartRecording() {
 		return
 	}
 
+	r.State = StateRunning
 	r.process = cmd.Process
 
 	pid := cmd.Process.Pid
@@ -54,6 +82,7 @@ func (r Recorder) StartRecording() {
 
 	// Wait for the command to exit
 	cmdErr := cmd.Wait()
+	r.State = StateStopped
 
 	// Start the new process as soon as this one exits to avoid loosing footage
 	r.restart()
@@ -70,12 +99,12 @@ func (r Recorder) StartRecording() {
 }
 
 // StopRecording stops the recording by exiting the process
-func (r Recorder) StopRecording() {
+func (r *Recorder) StopRecording() {
 	r.exit(ExitReasonStop)
 }
 
 // exit tries to gracefully exit the process, forcing it after a while if needed
-func (r Recorder) exit(reason string) {
+func (r *Recorder) exit(reason string) {
 	camId := r.Camera.Id
 	pid := r.process.Pid
 
@@ -105,8 +134,17 @@ func (r Recorder) exit(reason string) {
 	})
 }
 
-// restart signals the orchestrator to (re)start the process
-func (r Recorder) restart() {
+// restart signals the orchestrator to (re)start the process.
+// This is needed so the new recorder has the orchestrator as parent, instead of
+// this recorder
+func (r *Recorder) restart() {
 	// TODO Increase channel count?
 	orchestrator.startRecorder <- r.index
+}
+
+func (r *Recorder) copy() *Recorder {
+	return &Recorder{
+		Camera:    r.Camera,
+		OutputDir: r.OutputDir,
+	}
 }
