@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 	"vigilis/internal/config"
 	"vigilis/internal/files"
@@ -73,9 +75,18 @@ func run() {
 	tick := time.Tick(time.Second * 1)
 	recordingTick := time.Tick(recorders.RecordingLengthMinutes * time.Minute)
 
+	// Handle the application exit
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
 	for {
 		select {
-		// TODO Channel to capture SIGINT/SIGTERM on vigilis
+		// Capture SIGINT/SIGTERM on Vigilis
+		// Must be the first case on the switch, so tickers don't run after this
+		case <-stop:
+			logger.Info("Interrupt received, starting stopping sequence")
+			recorders.Stop()
+			os.Exit(0)
 		case <-recordingTick:
 			// Periodically delete old recordings
 			go files.DeleteOldRecordings()

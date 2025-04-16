@@ -55,8 +55,8 @@ type Recorder struct {
 	stderr  bytes.Buffer
 }
 
-// StartRecording starts a new recording
-func (r *Recorder) StartRecording() {
+// Record starts a new recording
+func (r *Recorder) Record() {
 	camId := r.Camera.Id
 
 	// Prepare the command
@@ -84,11 +84,12 @@ func (r *Recorder) StartRecording() {
 	cmdErr := cmd.Wait()
 	r.State = StateStopped
 
-	// Start the new process as soon as this one exits to avoid loosing footage
+	// Start the new recorder
 	r.restart()
 
-	// Log errors, exclude interruptions
-	if cmdErr != nil && cmdErr.Error() != "signal: interrupt" {
+	// Log errors, exclude interruptions. ffmpeg exits with status 255 on interrupt
+	exitCode := cmd.ProcessState.ExitCode()
+	if cmdErr != nil && exitCode != 255 {
 		logger.Error("%v recorder > Process %d exited with error: %v", camId, pid, cmdErr)
 
 		util.LogBuffer(r.stderr, "stderr", logger.Info, camId+" recorder")
@@ -108,9 +109,10 @@ func (r *Recorder) exit(reason string) {
 	camId := r.Camera.Id
 	pid := r.process.Pid
 
-	logger.Trace("%v recorder > Gracefully stopping recorder (PID: %d): %v", camId, pid, reason)
+	logger.Info("%v recorder > Gracefully stopping recorder (PID: %d): %v", camId, pid, reason)
 
 	// Try to gracefully exit the process
+	// TODO Sending an Interrupt in Windows is not implemented an throws an error; in that case, we should just kill the process
 	err := r.process.Signal(os.Interrupt)
 	if err != nil {
 		logger.Warn("%v recorder > Error sending interrupt to process with PID %d: %v", camId, pid, err)
@@ -122,7 +124,7 @@ func (r *Recorder) exit(reason string) {
 		err = r.process.Kill()
 		if err != nil {
 			if errors.Is(err, os.ErrProcessDone) { // Process is already finished
-				logger.Trace("%v recorder > Recording stopped gracefully before timeout (PID %d)", camId, pid)
+				logger.Info("%v recorder > Recording stopped gracefully before timeout (PID %d)", camId, pid)
 			} else {
 				logger.Error("%v recorder > Error killing process with PID %d: %v", camId, pid, err)
 			}
@@ -138,7 +140,6 @@ func (r *Recorder) exit(reason string) {
 // This is needed so the new recorder has the orchestrator as parent, instead of
 // this recorder
 func (r *Recorder) restart() {
-	// TODO Increase channel count?
 	orchestrator.startRecorder <- r.index
 }
 

@@ -7,6 +7,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 	"vigilis/internal/config"
 	"vigilis/internal/logger"
 )
@@ -16,8 +17,6 @@ const OutputDirPerms = 0700 // only owner has permission
 var orchestrator = Orchestrator{
 	recorders:      make([]*Recorder, 0),
 	lastRecorderId: 0,
-
-	startRecorder: make(chan int),
 }
 
 type Orchestrator struct {
@@ -29,6 +28,7 @@ type Orchestrator struct {
 
 func (o *Orchestrator) initializeRecorders(cameras []*config.Camera) {
 	basePath := config.Vigilis.Storage.Path
+	o.startRecorder = make(chan int, len(cameras))
 
 	for _, camera := range cameras {
 		o.lastRecorderId += 1
@@ -43,8 +43,32 @@ func (o *Orchestrator) initializeRecorders(cameras []*config.Camera) {
 }
 
 func (o *Orchestrator) startRecorders() {
+	logger.Info("Starting recorders")
 	for _, recorder := range o.recorders {
-		go recorder.StartRecording()
+		go recorder.Record()
+	}
+}
+
+func (o *Orchestrator) stopRecorders() {
+	logger.Info("Stopping recorders")
+	for _, recorder := range o.recorders {
+		recorder.StopRecording()
+	}
+}
+
+// waitForRecorders waits for every recorder to exit before returning
+func (o *Orchestrator) waitForRecorders() {
+	for {
+		// Check if any recorder is not stopped; if so, we need to wait
+		shouldWait := slices.ContainsFunc(o.recorders, func(recorder *Recorder) bool {
+			return recorder.State != StateStopped
+		})
+		if !shouldWait {
+			logger.Info("All recorders are stopped")
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -179,8 +203,13 @@ func Loop() {
 	// Re-start Recorder (by recreation) when one goes down
 	case i := <-orchestrator.startRecorder:
 		rec := orchestrator.recreateRecorder(i)
-		go rec.StartRecording()
+		go rec.Record()
 	default:
 		orchestrator.checkRecorderStates()
 	}
+}
+
+func Stop() {
+	orchestrator.stopRecorders()
+	orchestrator.waitForRecorders()
 }
